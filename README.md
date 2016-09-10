@@ -1,2 +1,11 @@
 # CPUshow10
 Magic Eye EM84 for Windows10
+(hardware: Elektuur 'Magic Eye' (Jan 2010))
+
+Original 'AVR309' driver doesn't install under Windows 10, so searched for other driver..
+Driver 'libusb-win32' testtool 'testlibusb-win.exe' sees the 'Magic Eye' directly (tested with v1.2.6.0), so the original CPUshow code is modified for this driver.
+
+(pm: libusb-win32 driver can be installed by using its inf-wizard.exe tool)
+
+Have fun!
+JDJK
