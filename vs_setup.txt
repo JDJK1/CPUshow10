@@ -1,0 +1,6 @@
+Win32 Console Application
+Disable: 'Precompiled Header'
+Enable: 'Empty Project'
+Add header: libusb-win32-bin-1.2.6.0\include\lusb0_usb.h
+Linker - Input - Additional Dependencies
+ add: libusb-win32-bin-1.2.6.0\lib\msvc\libusb.lib
