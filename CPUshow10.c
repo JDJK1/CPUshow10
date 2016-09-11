@@ -11,6 +11,14 @@ const int cAVRConfig = 1; // Must be 1 for AVR309
 const int cAVRIntf = 0;   // Must be 0 for AVR309 (usb_interface_descriptor.bInterfaceNumber)
 const int cSetOutDataPort = 5;
 
+static volatile BOOL gTerminate = FALSE;
+
+BOOL WINAPI ConsoleHandler(DWORD signal)
+{
+  gTerminate = (signal == CTRL_C_EVENT);
+  return TRUE;
+}
+
 struct usb_dev_handle* GetAVRDevice(void)
 {
   usb_dev_handle* avrDevice = NULL;
@@ -120,6 +128,7 @@ static char cpuusage()
    )
   );
 
+
   ul_sys_idle_old.QuadPart = ul_sys_idle.QuadPart;
   ul_sys_user_old.QuadPart = ul_sys_user.QuadPart;
   ul_sys_kernel_old.QuadPart = ul_sys_kernel.QuadPart;
@@ -131,6 +140,12 @@ int main(int argc, char** argv)
 {
   printf("Start CPUmeter.....!\n");
   printf("argc= %i\n", argc);
+
+  if (!SetConsoleCtrlHandler(ConsoleHandler, TRUE))
+  {
+    printf("ERROR: Could not set control handler\n");
+    return 1;
+  }
 
   // Initialize the library.
   usb_init();
@@ -192,30 +207,33 @@ int main(int argc, char** argv)
         printf("PWMmin= %i, PWMmax= %i\n", PWMmin, PWMmax);
 
         SetOutDataPort(avrDevice, PWMmin + 0x80, OutBuf); // Set PortA
-        
+
         printf("Softstart of heater and high voltage...\n");
-        for (int pwm = 3; pwm < 35; pwm++)
+        for (int pwm = 3; !gTerminate && (pwm < 35); pwm++)
         {
           SetOutDataPort(avrDevice, pwm, OutBuf);
 
           printf("SMPS PWM: %2d\r", pwm);
           Sleep(200);
         }
-        printf("\nSoftstart completed...\n");
-
-        double Xfiltered = 0;
-
-        while (1)
+        if (!gTerminate)
         {
-          int X = cpuusage();
+          printf("\nSoftstart completed...\n");
 
-          Xfiltered = 0.8*Xfiltered + 0.2*X;
-          int P = (int)(PWMmin + (Xfiltered / 100.0) * (PWMmax - PWMmin));
-          if (P < 0) P = 0;
-          else if (P > 127) P = 127;
-          printf("CPU Usage: %3d   send %3d to USB  \r", X, P);
-          SetOutDataPort(avrDevice, P + 0x80, OutBuf);
-          Sleep(100);
+          double Xfiltered = 0;
+
+          while (!gTerminate)
+          {
+            int X = cpuusage();
+
+            Xfiltered = 0.8*Xfiltered + 0.2*X;
+            int P = (int)(PWMmin + (Xfiltered / 100.0) * (PWMmax - PWMmin));
+            if (P < 0) P = 0;
+            else if (P > 127) P = 127;
+            printf("CPU Usage: %3d   send %3d to USB  \r", X, P);
+            SetOutDataPort(avrDevice, P + 0x80, OutBuf);
+            Sleep(100);
+          }
         }
       }
 
