@@ -238,11 +238,7 @@ int main(int argc, char** argv)
       usb_release_interface(avrDevice, cAVRIntf);
     }
 
-    if (avrDevice)
-    {
-      usb_close(avrDevice);
-      avrDevice = NULL;
-    }
+    usb_close(avrDevice);
   }
 
   printf("End of program\n");
