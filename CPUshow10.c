@@ -31,9 +31,9 @@ struct usb_dev_handle* GetAVRDevice(void)
     return NULL;
   }
 
-  for (struct usb_bus* bus = usb_get_busses(); bus; bus = bus->next) // && (avrDevice == NULL); bus = bus->next)
+  for (struct usb_bus* bus = usb_get_busses(); bus && (avrDevice == NULL); bus = bus->next)
   {
-    for (struct usb_device* dev = bus->devices; dev; dev = dev->next)// && (avrDevice == NULL); dev = dev->next)
+    for (struct usb_device* dev = bus->devices; dev && (avrDevice == NULL); dev = dev->next)
     {
       usb_dev_handle* udev = usb_open(dev);
       if (udev)
