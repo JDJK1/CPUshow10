@@ -28,46 +28,45 @@ struct usb_dev_handle* GetAVRDevice(void)
   if (!product)
   {
     printf("Error: failed allocating memory!\n");
+    return NULL;
   }
-  else
-  {
-    for (struct usb_bus* bus = usb_get_busses(); bus && (avrDevice == NULL); bus = bus->next)
-    {
-      for (struct usb_device* dev = bus->devices; dev && (avrDevice == NULL); dev = dev->next)
-      {
-        usb_dev_handle* udev = usb_open(dev);
-        if (udev)
-        {
-          memset(product, 0, STRING_MAX_SIZE);
 
-          if (dev->descriptor.iProduct)
+  for (struct usb_bus* bus = usb_get_busses(); bus; bus = bus->next) // && (avrDevice == NULL); bus = bus->next)
+  {
+    for (struct usb_device* dev = bus->devices; dev; dev = dev->next)// && (avrDevice == NULL); dev = dev->next)
+    {
+      usb_dev_handle* udev = usb_open(dev);
+      if (udev)
+      {
+        memset(product, 0, STRING_MAX_SIZE);
+
+        if (dev->descriptor.iProduct)
+        {
+          if (usb_get_string_simple(udev, dev->descriptor.iProduct, product, STRING_MAX_SIZE - 1) > 0)
           {
-            if (usb_get_string_simple(udev, dev->descriptor.iProduct, product, STRING_MAX_SIZE - 1) > 0)
+            if ((dev->descriptor.idVendor == cVendorUSBID) &&
+              (dev->descriptor.idProduct == cDeviceUSBID) &&
+              (dev->descriptor.bcdDevice == cDeviceVersion) &&
+              (strcmp(cAvrDevString, product) == 0))
             {
-              if ((dev->descriptor.idVendor == cVendorUSBID) &&
-                (dev->descriptor.idProduct == cDeviceUSBID) &&
-                (dev->descriptor.bcdDevice == cDeviceVersion) &&
-                (strcmp(cAvrDevString, product) == 0))
-              {
-                avrDevice = udev;
-                // AVR309 has only one interface with InterfaceNumber cAVRIntf, so no need to find interface
-              }
+              avrDevice = udev;
+              // AVR309 has only one interface with InterfaceNumber cAVRIntf, so no need to find interface
             }
           }
+        }
 
-          printf("Found usb id %04X:%04X (\"%s\")\n",
-            dev->descriptor.idVendor, dev->descriptor.idProduct, product);
+        printf("Found usb id %04X:%04X (\"%s\")\n",
+          dev->descriptor.idVendor, dev->descriptor.idProduct, product);
 
-          free(product);
-
-          if (avrDevice == NULL)
-          {
-            usb_close(udev);
-          }
+        if (avrDevice == NULL)
+        {
+          usb_close(udev);
         }
       }
     }
   }
+
+  free(product);
 
   return avrDevice;
 }
@@ -127,7 +126,6 @@ static char cpuusage()
     (ul_sys_user.QuadPart - ul_sys_user_old.QuadPart)
    )
   );
-
 
   ul_sys_idle_old.QuadPart = ul_sys_idle.QuadPart;
   ul_sys_user_old.QuadPart = ul_sys_user.QuadPart;
