@@ -80,10 +80,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="cpuusage.h" />
     <ClInclude Include="lusb0_usb.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CPUshow10.c" />
+    <ClCompile Include="cpuusage_windows.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

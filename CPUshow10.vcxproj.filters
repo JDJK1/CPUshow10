@@ -18,9 +18,15 @@
     <ClInclude Include="lusb0_usb.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="cpuusage.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CPUshow10.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="cpuusage_windows.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
