@@ -1,7 +1,14 @@
-#include <windows.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include "lusb0_usb.h"
+#include <stdbool.h>
+#include <string.h>
+#include "cpuusage.h"
+#ifdef LINUX
+  #include <signal.h>
+  #include <usb.h>
+#else
+  #include <windows.h>
+  #include "lusb0_usb.h"
+#endif
 
 const char* cAvrDevString = "AVR309:USB to UART protocol converter (simple)";
 const unsigned short cVendorUSBID = 0x03eb; // Atmel
@@ -11,13 +18,24 @@ const int cAVRConfig = 1; // Must be 1 for AVR309
 const int cAVRIntf = 0;   // Must be 0 for AVR309 (usb_interface_descriptor.bInterfaceNumber)
 const int cSetOutDataPort = 5;
 
-static volatile BOOL gTerminate = FALSE;
+static volatile bool gTerminate = false;
 
-BOOL WINAPI ConsoleHandler(DWORD signal)
-{
-  gTerminate = (signal == CTRL_C_EVENT);
-  return TRUE;
-}
+#ifdef LINUX
+  void SignalHandler(int sig)
+  {
+    gTerminate = true;
+  }
+
+  #define SetConsoleCtrlHandler(handler, add) (SIG_ERR != signal(SIGINT, handler))
+
+  #define Sleep(ms) usleep(ms * 1000)
+#else
+  BOOL WINAPI SignalHandler(DWORD signal)
+  {
+    gTerminate = (signal == CTRL_C_EVENT);
+    return true;
+  }
+#endif
 
 struct usb_dev_handle* GetAVRDevice(void)
 {
@@ -31,7 +49,7 @@ struct usb_dev_handle* GetAVRDevice(void)
     return NULL;
   }
 
-  for (struct usb_bus* bus = usb_get_busses(); bus && (avrDevice == NULL); bus = bus->next)
+  for (struct usb_bus* bus = usb_busses; bus && (avrDevice == NULL); bus = bus->next)
   {
     for (struct usb_device* dev = bus->devices; dev && (avrDevice == NULL); dev = dev->next)
     {
@@ -45,13 +63,17 @@ struct usb_dev_handle* GetAVRDevice(void)
           if (usb_get_string_simple(udev, dev->descriptor.iProduct, product, STRING_MAX_SIZE - 1) > 0)
           {
             if ((dev->descriptor.idVendor == cVendorUSBID) &&
-              (dev->descriptor.idProduct == cDeviceUSBID) &&
-              (dev->descriptor.bcdDevice == cDeviceVersion) &&
-              (strcmp(cAvrDevString, product) == 0))
+                (dev->descriptor.idProduct == cDeviceUSBID) &&
+                (dev->descriptor.bcdDevice == cDeviceVersion) &&
+                (strcmp(cAvrDevString, product) == 0))
             {
               avrDevice = udev;
               // AVR309 has only one interface with InterfaceNumber cAVRIntf, so no need to find interface
             }
+          }
+          else
+          {
+            perror("error: Could not read usb descriptor");
           }
         }
 
@@ -77,69 +99,12 @@ struct usb_dev_handle* GetAVRDevice(void)
   usb_control_msg(aAvrDevice, USB_ENDPOINT_IN | USB_TYPE_VENDOR, \
     cSetOutDataPort, aDataOutByte, 0, aOutBuf, 1, 250)
 
-//----------------------------------------------------------------------------------------------------------------
-// cpuusage(void)
-// ==============
-// source: http://en.literateprograms.org/cpu_usage_(c,_windows_xp)
-// Return a CHAR value in the range 0 - 100 representing actual CPU usage in percent.
-//----------------------------------------------------------------------------------------------------------------
-static char cpuusage()
-{
-  FILETIME              ft_sys_idle;
-  FILETIME              ft_sys_kernel;
-  FILETIME              ft_sys_user;
-
-  ULARGE_INTEGER        ul_sys_idle;
-  ULARGE_INTEGER        ul_sys_kernel;
-  ULARGE_INTEGER        ul_sys_user;
-
-  static ULARGE_INTEGER	ul_sys_idle_old;
-  static ULARGE_INTEGER ul_sys_kernel_old;
-  static ULARGE_INTEGER ul_sys_user_old;
-
-  CHAR usage = 0;
-
-  GetSystemTimes(&ft_sys_idle, /* System idle time */
-    &ft_sys_kernel, /* system kernel time */
-    &ft_sys_user); /* System user time */
-
-  CopyMemory(&ul_sys_idle, &ft_sys_idle, sizeof(FILETIME)); // Could been optimized away...
-  CopyMemory(&ul_sys_kernel, &ft_sys_kernel, sizeof(FILETIME)); // Could been optimized away...
-  CopyMemory(&ul_sys_user, &ft_sys_user, sizeof(FILETIME)); // Could been optimized away...
-
-  usage = (char)
-  (
-   (
-    (
-     (
-      (ul_sys_kernel.QuadPart - ul_sys_kernel_old.QuadPart) +
-      (ul_sys_user.QuadPart - ul_sys_user_old.QuadPart)
-     )
-     -
-     (ul_sys_idle.QuadPart - ul_sys_idle_old.QuadPart)
-    )
-    * 100
-   )
-   /
-   (
-    (ul_sys_kernel.QuadPart - ul_sys_kernel_old.QuadPart) +
-    (ul_sys_user.QuadPart - ul_sys_user_old.QuadPart)
-   )
-  );
-
-  ul_sys_idle_old.QuadPart = ul_sys_idle.QuadPart;
-  ul_sys_user_old.QuadPart = ul_sys_user.QuadPart;
-  ul_sys_kernel_old.QuadPart = ul_sys_kernel.QuadPart;
-
-  return usage;
-}
-
 int main(int argc, char** argv)
 {
   printf("Start CPUmeter.....!\n");
   printf("argc= %i\n", argc);
 
-  if (!SetConsoleCtrlHandler(ConsoleHandler, TRUE))
+  if (!SetConsoleCtrlHandler(SignalHandler, true))
   {
     printf("ERROR: Could not set control handler\n");
     return 1;
@@ -212,6 +177,7 @@ int main(int argc, char** argv)
           SetOutDataPort(avrDevice, pwm, OutBuf);
 
           printf("SMPS PWM: %2d\r", pwm);
+          fflush(stdout);
           Sleep(200);
         }
         if (!gTerminate)
@@ -229,6 +195,7 @@ int main(int argc, char** argv)
             if (P < 0) P = 0;
             else if (P > 127) P = 127;
             printf("CPU Usage: %3d   send %3d to USB  \r", X, P);
+            fflush(stdout);
             SetOutDataPort(avrDevice, P + 0x80, OutBuf);
             Sleep(100);
           }
