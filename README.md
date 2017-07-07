@@ -12,5 +12,7 @@ For Linux a Makefile is present.
 (pm: uses package 'libusb-dev'
  (eg for RaspberryPi (raspbian-jessie-lite 4.9): 'apt-get -f install', 'apt-get install libusb-dev'))
 
+Directory 'Driver' contains a (seperate) Linux device driver.
+
 Have fun!
 JDJK
